@@ -1,0 +1,2467 @@
+1438
+
+IEEE TRANSACTIONS ON INFORMATION FORENSICS AND SECURITY, VOL. 21, 2026
+
+EndPCA: Ensemble Defense With Provably
+Convergent Aggregation Against Poisoning
+Attacks in Federated Learning
+Mingyue Zhang , Chenyu Hu , Xuelian Cao , Atul Sajjanhar , Senior Member, IEEE, Zheng Yang ,
+Muneeb Ul Hassan , Member, IEEE, Zhi Jin , Fellow, IEEE, and Jialong Li , Member, IEEE
+
+Abstract—Despite its success in many applications, federated
+learning is increasingly vulnerable to sophisticated poisoning
+attacks. Existing defenses, particularly Byzantine Robust Aggregation Rules (BRARs), offer some protection but rely on strong
+assumptions or challenging technical prerequisites. To address
+these shortcomings, we propose an ensemble defense with provably
+convergent aggregation (EndPCA). By using the entropy weight
+method to consolidate scores from multiple BRARs into an
+ensemble trust score, it effectively integrates heterogeneous weak
+BRARs to resist a wide range of poisoning attacks under
+practical assumptions. We formally prove that EndPCA can
+provide theoretical guarantees of convergence with bounded
+error. Our empirical evaluations show that EndPCA consistently
+outperforms existing BRARs, demonstrating its effectiveness
+across various scenarios.
+Index Terms—Federated learning, poisoning attacks, byzantine
+robust aggregation rule.
+
+I. I NTRODUCTION
+EDERATED learning (FL) enables decentralized client
+devices to train machine learning models while adhering
+to data privacy constraints. In FL, the server distributes a
+global model to clients, which train it locally on private data
+and return updates. The server then aggregates these updates to
+refine the shared model iteratively until satisfactory accuracy
+is achieved. FL offers secure on-device learning and has
+been deployed across healthcare [1], finance [2], autonomous
+vehicles [3], and Industry 4.0 [4], [5]. It is already used by
+companies like Google and Apple in services like Gboard’s
+next-word prediction [6] and Siri [7].
+
+F
+
+Received 27 May 2025; revised 5 December 2025; accepted 5 January
+2026. Date of publication 19 January 2026; date of current version 30 January
+2026. This work was supported in part by the National Natural Science
+Foundation of China under Grant 62402400 and Grant 62372386, in part
+by the Fundamental Research Funds for the Central Universities under Grant
+SWU-KQ23005, and in part by the National Key Research and Development Program of China under Grant 2025YFE0220300. The associate editor
+coordinating the review of this article and approving it for publication was
+Dr. Dusit Niyato. (Corresponding author: Zheng Yang.)
+Mingyue Zhang, Chenyu Hu, Xuelian Cao, and Zheng Yang are with
+the College of Computer and Information Science, Southwest University,
+Chongqing 400715, China (e-mail: myzhangswu@swu.edu.cn; hu.c.f712@
+m.isct.ac.jp; youngzheng@swu.edu.cn).
+Atul Sajjanhar and Muneeb Ul Hassan are with Deakin University,
+Melbourne, VIC 3217, Australia.
+Zhi Jin is with the School of Computer Science, Peking University, Beijing
+100091, China.
+Jialong Li is with Waseda Institute for Advanced Study, Waseda University,
+Tokyo 169-8050, Japan.
+Digital Object Identifier 10.1109/TIFS.2026.3655513
+
+Although FL is valuable, many of its application scenarios,
+exemplified by privacy-sensitive sensing, adversarial manipulation and blockchain environments with decentralized trust
+and immutable but contamination-prone data [8], [9], [10],
+inherently expose models to inference and perturbation risks.
+These characteristics suggest that FL systems are increasingly
+vulnerable to sophisticated and evolving attacks. This work
+focuses on defending against poisoning attacks, which are
+considered among the most harmful threats to FL [11], [12],
+[13]. Poisoning attacks come in two main types: untargeted
+attacks, aiming to reduce the accuracy of the global model
+[14], [15], and targeted attacks, aiming to change the model’s
+predictions for specific inputs while leaving others unchanged
+[16], [17]. For instance, targeted attacks might involve inserting backdoors [16], [18] into the global model, allowing
+adversaries to control predictions for predefined inputs without
+triggering suspicion during normal operations.
+Byzantine Robust Aggregation Rules (BRARs) are effective against poisoning attacks [19], [20], [21]. BRARs apply
+various techniques to analyze the model updates uploaded
+by clients, mitigating the negative impact of the poisoned
+updates on the global model. We categorize BRARs into
+three types: robust statistical-based methods [19], [21], [22],
+methods using an auxiliary trusted dataset for evaluation [23],
+[24], [25], and hybrid approaches combining both [15], [26],
+[27]. They rely on strong (and often impractical) assumptions
+or technical prerequisites that are challenging to implement
+in practice. Examples include requiring a certain proportion
+of honest clients [21], specific properties of honest updates
+[28], or a clean and unbiased dataset [26]. Deviations from
+these assumptions or technical prerequisites can significantly
+undermine their effectiveness. Therefore, although they may
+offer robust defenses in specific attack scenarios, they fall
+short in defending against a wide range of poisoning attacks,
+particularly unknown ones.
+We observe that existing BRARs exhibit complementary
+strengths: different BRARs excel in specific defensive scenarios, while their weaknesses are often covered by the strengths
+of other BRARs. FLTrust [26] performs well in independent
+and identically distributed (IID) but struggles in non-IID
+settings. FLAME [29] is effective in both, but weakens when
+malicious clients exceed half. The key question we address
+is whether a unified framework can integrate complementary
+BRARs while ensuring provably convergent robust aggregation under diverse and dynamic adversarial conditions.
+Our Works. To address the above question, we develop
+Ensemble defense with Provably Convergent Aggregation
+
+1556-6021 © 2026 IEEE. All rights reserved, including rights for text and data mining, and training of artificial intelligence and
+similar technologies. Personal use is permitted, but republication/redistribution requires IEEE permission.
+See https://www.ieee.org/publications/rights/index.html for more information.
+Authorized licensed use limited to: Biblioteca de la Universidad de Extremadura. Downloaded on March 15,2026 at 14:04:29 UTC from IEEE Xplore. Restrictions apply.
+
+ZHANG et al.: ENSEMBLE DEFENSE WITH PROVABLY CONVERGENT AGGREGATION AGAINST ATTACKS IN FL
+
+(EndPCA), a unified theoretical framework that adaptively
+integrates multiple base BRARs, each tailored to specific
+attack patterns and FL conditions, into a robust and convergent aggregation scheme. Integrating these base BRARs is a
+highly technical challenge. Essentially, it involves combining
+multiple partial and potentially conflicting assessments of the
+same entity into a comprehensive assessment. In particular,
+a naive combination (e.g., averaging) of base BRARs often
+weakens the overall defense capability. We tackle this challenge by leveraging a core idea of ensemble learning [30],
+[31], i.e., multiple weak learners can be combined into a
+stronger learner. The design and implementation of EndPCA
+incorporate the following key techniques. (1) We develop an
+entropy-weight-method-based integration, which calculates the
+entropy of the trust scores assigned by BRARs to model
+updates and dynamically adjusts an importance score for each
+base BRAR. (2) We select a compact yet diverse set of
+base BRARs to cover a wide range of poisoning attacks and
+FL scenarios, while keeping the system complexity low. To
+enable seamless integration, we adapt existing BRARs with
+key modifications, such as constructing trusted datasets from
+client-side data and using clustering methods to select robust
+reference points.
+EndPCA not only strengthens protection against poisoning
+attacks that the original base BRARs could counter but also
+extends defense to attacks they couldn’t. Importantly, one of
+our key design choices is to construct trusted datasets from
+client-side data instead of relying on a server-side trusted
+dataset. We extend the convergence proof of FLtrust [26]
+to this setting, showing that EndPCA achieves convergence
+without requiring an auxiliary trusted dataset, which represents
+a key innovation not supported by FLtrust. Finally, extensive
+experiments demonstrate that EndPCA significantly outperforms strong baselines, including state-of-the-art (SOTA)
+BRARs, achieving 0.02% to 7.22% higher accuracy and 0.04%
+to 74.02% lower attack success rates.
+Contributions. We make the following contributions:
+• We propose a unified defense framework, capable of
+robustly integrating heterogeneous weak BRARs, via a
+tailored ensemble scoring mechanism based on entropy.
+• We adapt complementary BRARs to instantiate EndPCA,
+not by simply combining them, but by bridging their
+differences through targeted modifications. These include
+constructing client-side trusted datasets and using clustering to select robust references, enabling an efficient and
+unified defense across diverse poisoning scenarios.
+• We formally prove that EndPCA can provide theoretical
+guarantees of convergence without an auxiliary trusted
+dataset, making it more broadly applicable to practical
+FL systems than existing BRARs.
+• We empirically evaluate the effectiveness of EndPCA.
+The results show that it outperforms existing BRARs
+in both metrics related to robustness and backdoor
+resilience.
+II. BACKGROUND AND R ELATED W ORK
+A. Background
+Following the previous works [19], [26], [32], we consider
+a typical FL system consisting of a centralized server and
+n clients labeled by 1, . . . , n. The set of all client numbers is
+denoted as N = {1, . . . , n}. The server manages a global model,
+with parameters denoted as w G . Each client holds a local
+
+1439
+
+Fig. 1. The training process and the poisoning attack in FL.
+
+private training dataset Di , where i ∈ N, exclusively accessible
+to client i; other clients and the server cannot access toS
+Di . The
+joint training dataset of all clients is denoted as D = ni=1 Di .
+The training example in D follow an unknown distribution X .
+Each training example in Di follows a unique distribution (i.e.,
+non-IID). Each client manages a local model, with parameters
+denoted as w i , where i ∈ N. Formally, the goal of FL is to
+solve the optimization problem, w∗ = arg minw∈Rd L(w), where
+L(w) = EX∼X [L(X, w)] is the expectation of the empirical loss
+L(X, w) on distribution X , Rd is the parameter space, and
+d is the parameter dimensionality. As illustrated in Fig. 1,
+FL system trains the global model through multiple training
+iterations, and performs the following steps at each iteration.
+(1) At tth iteration, the server sends the current global model
+1
+(2)
+parameter wt G to the clients, denoted as St ⊂ N (O).
+t
+Each client learns a local model parameter
+w
+by
+solving
+the
+i
+P
+optimization problem wt i = arg minw X∈Di L(X, w). Client
+i initializes its local model with wt G , and performs several
+2
+iterations via stochastic gradient descent based on Di (O).
+Each client sends its local model update gti = wt i − wt G to
+3 and O).
+4
+the server (O
+(3) The server aggregates these local
+model updates { gti : i ∈ St } into a global model update gGt .
+t
+The aggregation function is G : R|S |×d → Rd . The server then
+updates the global model parameters with wt G = wt−1 G − αgGt ,
+where α ∈ [0, 1] is the global learning rate. The superscript
+t in symbols like gGt and wt G represents the global training
+iteration. Unless involving training iterations, the superscript
+is omitted in the following sections.
+B. Poisoning Attacks
+As illustrated in Fig. 1, attackers control malicious clients
+to send harmful local model updates to the server with the
+intent of corrupting the global model. These malicious updates
+may be generated from poisoned local training data [33], [34],
+[35] or entirely fabricated [14], [36], [37]. Poisoning attacks
+can be classified into untargeted attacks and targeted attacks.
+In untargeted attacks, the attacker aims to broadly degrade
+the global model’s accuracy. Examples include the Labelflip
+[38], Trim [14], and adaptive attack [14]. Targeted attacks seek
+to manipulate the model’s prediction on specific inputs while
+preserving normal behavior elsewhere. A prominent example
+of a targeted poisoning attack is the backdoor attack [16], [18],
+[36]. Here, the attacker embeds a trigger, such as a unique
+pattern or signal, into target test inputs to compromise the
+model, forcing it to misclassify or favor specific outcomes.
+The typical backdoor attacks are 3DFed [17] and scaling attack
+[16].
+C. Byzantine Robust Aggregation Rule
+BRARs defend against poisoning attacks, enabling servers
+to learn accurate global models despite Byzantine clients. They
+
+Authorized licensed use limited to: Biblioteca de la Universidad de Extremadura. Downloaded on March 15,2026 at 14:04:29 UTC from IEEE Xplore. Restrictions apply.
+
+1440
+
+IEEE TRANSACTIONS ON INFORMATION FORENSICS AND SECURITY, VOL. 21, 2026
+
+fall into three categories. The first one uses robust statistical
+methods, treating model updates or gradients as vectors and
+mitigating the impact of statistical outliers. The second one
+uses a trusted dataset to evaluate model performance, assess
+client trust, and assign aggregation weights. The third one
+combines statistical methods with the trusted dataset. In the
+first methods, Foolsgold [28] computes the similarity between
+historical as an indicator of potential attacks. Deepsight [19]
+proposes division differences and normalized energy updates
+to differentiate between malicious clients and benign ones.
+RFLBAT [39] employs K-means for aggregation. FLAME
+[29] uses clipping, clustering and noise to mitigate malicious
+updates. In the second methods, out-of-distribution (OOD)
+data is used for detecting backdoors [40]. FAIR [41] estimates learning quality using historical records. Zeno [25]
+collects a validation dataset and calculates validation gradients.
+FLDetector [24] excludes outliers through comparing historical updates with the local updates from the current epoch.
+In the third methods, FLTrust [26] assigns each client a score
+based on the similarity between the model updates trained
+on the root dataset and the local model updates. FLest [42]
+enhances FLTrust by clustering the clients’ updates. FLCert
+[43] integrates multiple BRARs based on the principle of
+majority consensus.
+However, existing BRARs still face notable limitations.
+Firstly, many rely on overly strong assumptions about attackers
+and training data. For example, FoolsGold [28] holds diversity
+assumption for the honest updates. Krum [22], Bulyan [21],
+and Trimmed mean [44] require the proportion of malicious
+clients to stay below strict thresholds. Secondly, some BRARs
+rely on technical prerequisites that are challenging to implement. For example, FLTrust [26] assumes access to a clean
+and unbiased trusted dataset. From the perspective of provable
+security, Bulyan [21] and FLCert [43] can guarantee convergence only under strict limits on the number of malicious
+clients. Currently, no BRAR can address both targeted and
+untargeted attacks under conditions where the trusted
+dataset may be biased, or malicious clients may exceed
+half, while also providing theoretical guarantees.
+III. T HREAT M ODEL AND R EQUIREMENTS
+A. Threat Model
+We adopt the threat model used in previous works [14], [26],
+[45] on poisoning attacks. The attacker’s goal is to execute
+either untargeted or targeted poisoning attacks to undermine
+the FL training process. We assume that an attacker can control
+at most m malicious clients, where m < n − 1, implying that
+there is at least one honest client. The attacker can instruct
+these malicious clients to execute designated attacking tasks,
+including submitting arbitrary model updates to the server.
+The server is semi-honest and trusted in computation, while
+clients may be malicious but cannot modify other clients’ data
+or the server’s logic. The attacker selects malicious clients
+before training but cannot manipulate originally honest clients
+during the training process, with client identities (malicious
+or honest) remaining unchanged. Meanwhile, the attacker may
+exploit its background knowledge of the target FL system to
+launch attacks. We focus on the strong poisoning attacks in the
+full-knowledge setting [26], [46], which assumes the attacker
+knows the global model, the global model updates, the global
+learning rate, the server’s aggregation rule, the loss function,
+the number of all clients, the local training data of malicious
+clients, and the local model updates on all clients.
+
+Fig. 2. Overview of EndPCA.
+
+B. Design Goals and Requirements
+We aim to design a broad-spectrum FL defense that
+meets key security requirements: (R1) Defense-integration
+robustness: The defense should resist a broad-spectrum of
+targeted and untargeted poisoning attacks, preserving the
+global model’s accuracy and backdoor resilience as if no
+attacks occurred. (R2) Fidelity: The method should preserve
+the global model’s classification accuracy under no attacks,
+matching the performance of FedAvg [32]. (R3) Data distribution independence: The defense should work effectively
+for both i.i.d. and non-i.i.d. client data distributions, without
+relying on specific distribution characteristics. (R4) Largescale malicious clients resilience: The method must remain
+robust against a wide range of malicious client proportions,
+performing reliably even when the proportion of honest clients
+falls below 10%. (R5) No-Trusted server-side datasets: The
+method avoids requiring a trusted dataset on server, relying
+solely on client-uploaded information to establish trust and
+guide model aggregation.
+IV. T HE P ROPOSED E ND PCA
+A. Overview of EndPCA
+We propose a defense integration method that unifies multiple heterogeneous strategies against diverse poisoning attacks,
+while remaining easily extensible. Since naive combinations
+(e.g., averaging) often weaken individual defenses, we design
+an entropy-weight-method-based integration that merges their
+trust scores into a single ensemble trust score to preserve
+and enhance their effectiveness. The ensemble score, weighted
+by the entropy of defense trust scores (lower entropy contributes more), serves as the aggregation weight in G. The
+method also computes a reference model update as the trust
+root. We select suitable base BRARs based on the following
+principles. (1) Dictatorship, i.e., computing one of the most
+“promising” model updates to judge other updates. (2) Diversity, i.e., distinguishing the honest clients and the malicious
+ones based on the diversity of their updates. (3) Centroid,
+i.e., clustering the model updates to aggregate similar ones
+into a “high-promising” updates. (4) Trigger detection, i.e.,
+identifying changes in specific neurons to determine if a
+backdoor is implanted. While no single principle meets all five
+requirements.
+Fig. 2 provides an overview of EndPCA, where the server
+employs four scoring defense strategies derived from SOTA
+defense or attack techniques and tailored for integration based
+on the four defense principles. At each global training iteration, a reference model update is computed based on the
+1
+local model updates from St (O).
+Then, the four defense
+
+Authorized licensed use limited to: Biblioteca de la Universidad de Extremadura. Downloaded on March 15,2026 at 14:04:29 UTC from IEEE Xplore. Restrictions apply.
+
+ZHANG et al.: ENSEMBLE DEFENSE WITH PROVABLY CONVERGENT AGGREGATION AGAINST ATTACKS IN FL
+
+1441
+
+To capture the relative position of trust scores on a global
+scale, we calculate the fuzzy membership degree for each
+score: ci, j t,fuzzy = (ci, j t − min j∈St ci, j t )/(max j∈St ci, j t − ci, j t ). The
+aggregated score for client P
+i is a weighted sum of fuzzy
+K
+t,fuzzy
+membership values: qtj =
+. To address the
+i=1 σ̄i ci, j
+potential randomness in each iteration, we design a historical
+weighted average formula to integrate current and historical
+scores into an ensemble trust score q̂ti :
+
+TABLE I
+C APABILITY C OMPARISON OF D EFENSE M ETHODS
+
+t
+t−1
+q̂ti = q̂t−1
++ αq (|qti − q̂t−1
+i
+i |)(qi − q̂i )
+
+(3)
+
+where αq (x) = max{1, 2x − x2 } is used to balance the historical
+scores and the current scores. The reference model update for
+the (t + 1)th iteration is computed as:
+strategies assess local model updates, assigning trust scores
+(Dictatorship, Diversity, Centroid, and Trigger detection) to
+2
+clients (O).
+Next, the importance weight for each defense
+strategy is calculated based on the entropy of its generated
+3
+trust scores (O).
+Ensemble trust scores are computed as the
+weighted sum of trust scores under the importance weights
+4
+(O).
+Finally, the global model update is obtained through
+weighted averaging of local updates, adjusted by ensemble
+5
+trust scores and normalized with reference model updates (O).
+We compare the capabilities of various BRARs in Table I.
+EndPCA satisfies all the security requirements, while no other
+algorithm meets them all. It defends against the most poisoning attacks among all methods, performing well across five key
+defense capabilities. We emphasize that EndPCA does not rely
+on the idea that incorporating more defenses necessarily leads
+to better performance. The framework adopts four components
+because they correspond to the four principles that jointly
+satisfy all required security requirements (R1-R5). Introducing
+additional BRARs yields limited marginal benefit unless new
+security objectives need to be addressed.
+B. Entropy-Weight-Method-Based Integration
+Prior work [15], [26], [28] suggests that effective scoringbased defenses yield polarized trust scores. This aligns with
+the principle of the entropy weight method (EWM) [47],
+[48], which assigns higher weights to low-entropy (i.e., more
+informative) metrics. Empirically, we observe that more robust
+methods consistently exhibit lower entropy in trust scores
+(refer to Section V-E), supporting the use of EWM in computing ensemble trust. At tth global training iteration, ith
+defense strategy computes a set of trust scores for the selected
+clients, i.e., {ci, j t } j∈St , where ci, j t is the trust score given by ith
+defense strategy to client j at tth iteration, and the method
+for computing ci, j t will be detailed in Section IV-C. To ensure
+fair weight calculation
+Pacross defense strategies, we normalize
+ci, j t : ci, j t,norm = ci, j t / j∈St ci, j t . Entropy reflects the dispersion
+of each defense’s scores:
+1 X t,norm
+ei = −
+ci, j
+ln(ci, j t,norm + ent )
+(1)
+ln(|St |) t
+j∈S
+
+where ent is a small value to prevent ln(0). The importance
+weight σ̄i of defense i is derived from entropy value. Defenses
+with lower entropy are assigned higher weights:
+1 − ei
+σ̄i = PK
+i=1 (1 − ei )
+where K is the number of all defense strategies.
+
+(2)
+
+gt+1
+=
+R
+
+gt+1
+t gtR
+k
++
+, s.t. k = arg maxt q̂ti .
+i∈S
+t+1 t+1
+
+(4)
+
+It iteratively computes the average model update
+with the
+P
+1
+t
+highest q̂ti in history. Specifically, gt+1
+≈
+t g , where
+t
+i∈SR i
+R
+|SR |
+StR includes clients with the highest q̂ti from the initial to tth
+iteration. A larger |StR |, excluding malicious updates, reduces
+||w∗ − wt G ||, thereby improving global model quality. See
+Section IV-E for theoretical analysis. Even if early camouflaged attackers briefly enter the reference set, their
+contribution is suppressed by the 1/t-decaying historical averaging in Eq. (4), making such contamination quickly negligible
+in later rounds.
+The aggregation function G is defined as follows:
+X
+|| gt ||
+1
+q̂ti · Rt · gti
+(5)
+gGt = P
+t
+||gi ||
+j∈St q̂ j
+t
+i∈S
+
+|| gtR ||
+|| gti ||
+
+normalizes gti , constraining its magnitude to
+where term
+||gtR || while preserving its direction. This prevents anomalous
+updates from affecting the aggregation. Theoretical properties
+of this normalization are key to the proof of Lemma 1, which
+is a crucial step in proving the convergence. The EWM-based
+integration also behaves stably under two boundary conditions.
+When one sub-defense produces highly polarized scores, its
+entropy decreases, but σ̄i remains bounded, preventing excessive dominance owing to entropy saturation and cross-defense
+normalization. Conversely, when all defenses yield similar
+scores, the weights σ̄i converge and the weights naturally
+become uniform, reflecting genuine ambiguity rather than
+harmful dilution. Together with the historical smoothing in
+Eq. (5), these properties ensure that weight allocation remains
+moderate and robust even in extreme score configurations.
+C. Scoring Defense Strategy Design
+Based on the four defense principles and the EWM-based
+integration, we design four scoring defense strategies.
+1) Dictatorship-Based Defense: Honest clients generate
+“promising” updates by minimizing empirical loss, guiding the
+global model toward optimal parameters. Malicious clients, as
+our threat model, aim to degrade accuracy or inject backdoors.
+Updates from honest clients are inherently more promising.
+To meet the security requirement R5, we bootstrap a reference model update gt+1
+from client updates, treating it as
+R
+a promising local update. This approach removes the need
+for trusted server-side datasets. We use cosine similarity to
+measure the directional alignment between local and reference
+model updates, serving as a trust metric for the client. To
+
+Authorized licensed use limited to: Biblioteca de la Universidad de Extremadura. Downloaded on March 15,2026 at 14:04:29 UTC from IEEE Xplore. Restrictions apply.
+
+1442
+
+IEEE TRANSACTIONS ON INFORMATION FORENSICS AND SECURITY, VOL. 21, 2026
+
+mitigate the impact of negative similarity, negative values are
+clipped by ReLU function. The trust score is computed as:
+
+
+hgtR , gti i
+,
+(6)
+c1,i t = ReLU
+|| gtR || · || gti ||
+where ReLU(x)=max{0, x}, h gtR , gti i inner product of gtR and
+h gt , gt i
+gti , and || gt R||·|| gi t || is the cosine similarity. If the angle between
+R
+i
+gtR and gti exceeds 90◦ , c1,i t = 0.
+2) Diversity-Based Defense: Diversity principle effectively
+mitigates Sybil-based attacks, where malicious clients act
+as clones with similar updates to drive the global model
+toward an attack goal. Diversity is key to distinguishing honest
+clients from Sybil clones, as the latter produce highly similar
+updates. To accurately calculate diversity, we incorporate
+historicalPmodel updates. Client i’s historical model update
+is: Hi = Tt=1 gti , where T is current global training iteration.
+hHi ,H j i
+S T -weighted cosine similarity is: csi, j = S T ||Hi ||·||H
+, where S T
+j ||
+is a weights varying with the iteration. The diversity-based
+trust score is computed as follows:
+ 
+
+
+ai
+t
++ 0.5
+(7)
+c2,i = κ ln
+1 − ai
+1−max
+
+cs
+
+j∈N
+i, j
+where ai = maxi∈N (1−max
+and κ is confidence parameter.
+j∈N csi, j )
+Eq. (7) is inspired by FoolsGold [28]. Given the non-IID
+nature of client data, honest clients are expected to generate
+diverse updates. The logit transformation sharpens similarity
+distinctions, penalizing overly similar clients and preserving
+the influence of those with distinct behaviors.
+3) Centroid-Based Defense: When m < n2 , clustering
+methods are effective. At the tth global iteration, we use
+K-means clustering to split { gti }i∈St into two groups G0 and G00
+with centroids g0 and g00 , respectively. The cosine similarity
+hx,yi
+is used to compute the trust score as:
+Sim(x, y) = ||x||·||y||
+
+
+h gtcen , gti i
+c3,i t = ReLU
+||gtcen || · || gti ||
+8 0
+g , d3 > max{d1 , d2 } ∧ |G0 | > |G00 |
+ˆ
+ˆ
+< 00
+g , d3 > max{d1 , d2 } ∧ |G0 | ≤ |G00 |
+, (8)
+s.t. gtcen =
+ˆ
+g0 , d ≤ max{d1 , d2 } ∧ d1 > d2
+ˆ
+: 00 3
+g , d3 ≤ max{d1 , d2 } ∧ d1 ≤ d2
+
+where d1 = Sim(g0 , gtR ), d2 = Sim(g00 , gtR ), d3 = Sim(g0 , g00 ). A
+high similarity between g0 and g00 may indicate that malicious
+clients are imitating honest behavior, in which case selecting
+the cluster center remains a reasonable choice, as it reflects
+the majority trend. In contrast, a low similarity suggests
+that malicious clients are significantly deviating from honest
+updates, making the reference update a more trustworthy and
+safer option for aggregation.
+4) Trigger Detection-Based Defense: Trigger Detection targets 3DFed [17], a SOTA backdoor attack that manipulates
+specific neurons (indicators) to monitor whether the server
+accepts a client’s update. Honest clients rarely alter these neurons, whereas malicious clients must modify them to sustain
+the attack. Thus, we design an indicator, i.e., a set of redundant
+neurons with minimal impact on the main task. Any client
+modifying these neurons is flagged as suspicious and likely
+malicious. Specifically, we identify neurons where model
+updates have significantly smaller magnitudes compared to
+others. Let gGt (I) be the parameters of gGt at index I.
+Iˆ = arg min | gGt (Iˆi )|
+(9)
+Iˆi
+
+where Iˆ = {Iˆ1 , Iˆ2 , . . . , Iˆj } is the index of the set of neurons with
+the smallest absolute values.
+We identify neurons whose parameters minimally impact
+task loss. Using the Hessian HG (second derivative of the loss
+function), the changing direction of model updates is:
+ˇ ∂2 E
+ˇ
+t
+ˇ
+X∈DR [L(X, w G )] ˇ
+HG = ˇ
+(10)
+ˇ, s.t. R = arg max q̂it−1 .
+i∈N
+∂2 wt G
+The indicator is computed with I¯ = arg minI¯i ∈Iˆ |HG (I¯i )|, where
+HG (I) denotes the parameter in HG at index I. Redundant neurons depend on the network structure and dataset, remaining
+constant across iterations. Thus, the index I¯ can be reused
+after calculation. At tth global training iteration, the server
+receives local model updates { gti : i ∈ St }, and extracts values
+¯ i.e., { gti (I)
+¯ : i ∈ St }. We compute the required
+at index I,
+Hessian–vector products once at initialization, restricted to the
+last layer and a small trusted-client batch, resulting in a onetime O(nd) overhead, where d is the dimension of the model
+updates and n is the number of clients.
+We use the iForest algorithm [49], [50] to detect outliers in
+¯ : i ∈ St } set. iForest is an unsupervised algorithm that
+the { gti (I)
+isolates data points via recursive random partitioning, where
+outliers are separated in fewer splits than normal points. The
+¯ : i ∈ St } into 5 subsets
+steps are as follows: (1) Split { gti (I)
+(5)-fold cross-validation); (2) Initialize the iForest (referred to
+as the IsF for short) and define parameter values controlling its
+sensitivity and complexity; (3) During training, the IsF builds
+¯ : i ∈ St } and
+decision trees based on the subset of { gti (I)
+evaluates if points in the validation set are outliers; (4) Retrain
+the IsF with optimal parameters and detect outliers in the entire
+dataset, generating a prediction for each point. Let the iForest
+¯ : i ∈ St }, i) = {1, −1}, where 1 indicates that gti (I)
+¯
+be IsF({ gti (I)
+¯ is an outlier. The trust
+is normal and -1 indicates that gti (I)
+score is:
+
+¯ : i ∈ St }, i) = 1
+1, IsF({ gti (I)
+t
+c4,i =
+.
+(11)
+t ¯
+0, IsF({ gi (I) : i ∈ St }, i) = −1
+D. EndPCA Algorithm
+Algorithm 1 presents EndPCA for the server-side. It run
+s T global iterations. In each round, the server distributes
+the current global model to the selected clients, collects their
+local updates, and then computes the reference update based
+on these uploads (lines 6 to 10). Next, the server computes
+the trust scores using the four scoring defense strategies
+and computes the importance weights σ̄ j for all strategies
+(lines 11 to 16). In line 12, DIC, DIV, CEN, and TRD
+represent dictatorship-based defense, diversity-based defense,
+centroid-based defense and trigger detection-based defense,
+respectively. In lines 17 to 25, the server computes the
+ensemble trust scores q̂ti for all clients. Finally, the server
+updates the global model using the aggregated model updates
+(line 26 and 27). Fig. 3 illustrates the operations and algorithms involved in update aggregation on the server during
+each global training iteration (corresponding to lines 8 to 26 in
+Algorithm 1). To calculate trust scores in DIV, CEN, and TRD,
+EndPCA invokes FoolsGold,1 the K-means algorithm,2 and
+3DFed.3 Our code is open-source.4 As for computation overhead, DIC computes inner products per client, with cost O(kd),
+1 https://github.com/DistributedML/FoolsGold
+2 https://scikit-learn.org/stable/api/sklearn.cluster.html
+3 https://github.com/haoyangliASTAPLE/3DFed
+4 https://github.com/GeorgeDUT/fedlearning
+
+Authorized licensed use limited to: Biblioteca de la Universidad de Extremadura. Downloaded on March 15,2026 at 14:04:29 UTC from IEEE Xplore. Restrictions apply.
+
+ZHANG et al.: ENSEMBLE DEFENSE WITH PROVABLY CONVERGENT AGGREGATION AGAINST ATTACKS IN FL
+
+Algorithm 1 EndPCA for Server-Side
+1: Input: Global learning rate α, number of training
+iterations T ;
+2: Output: Global model parameter wT G .
+3: Randomly initialize w0 G , and initialize g0R with 0;
+4: Initialize each q̂0i with 0, where i ∈ {1, . . . , |N|};
+5: for t = 1 to T do
+6:
+Sample a client set St from N and send wt G to them;
+7:
+Wait for all clients in St to finish the local training;
+8:
+Receive { gti : i ∈ St } from the selected clients;
+9:
+k ← arg maxi∈St q̂t−1
+i ;
+10:
+gtR ← ( gtk + (t − 1)gt−1
+R )/t;
+11:
+for i ∈ St do
+12:
+Compute c1,i t , c2,i t , c3,i t , and c4,i t using DIC, DIV,
+CEN, and TRD, respectively;
+13:
+end for
+14:
+for each defense strategy i do
+15:
+Compute σ̄i of {ci, j : j ∈ St } using Eq. (2);
+16:
+end for
+17:
+for i ∈ N do
+18:
+if i ∈ St then
+P
+19:
+qti ← 4j=1 σ̄ j c j,i ; // There are 4 defense strategies.
+t
+t−1 2
+20:
+αq ← max{1, 2|qti − q̂t−1
+i | − (qi − q̂i ) };
+t
+t−1
+21:
+q̂ti ← q̂t−1
++
+α
+(q
+−
+q̂
+);
+q i
+i
+i
+22:
+else
+23:
+q̂ti ← q̂t−1
+i ;
+24:
+end if
+25:
+end for
+P
+|| gt ||
+26:
+gGt ← P 1 t q̂t i∈St q̂ti || gRt || gti ;
+j∈S
+i
+j
+27:
+wt G ← wt−1 G − αgGt ;
+28: end for
+
+1443
+
+distribution of Xi according to a sampling policy π, then
+P
+n
+Xi0 is sub-exponential scaling parameters (v∗ , α∗ ), where
+i=1P
+2
+v∗ = ni=1 v2i and α∗ = max1≤i≤n αi . Moreover,
+( n
+)
+X
+P
+(Xi0 − µi ) ≥ (t + B(π)) ≤
+i=1
+
+
+
+exp(−t2 /(2v2∗ )), if 0 ≤ t ≤ v2∗ /α∗
+exp(−t/(2α∗ )), otherwise
+
+,
+
+(12)
+
+where B(π) denotes the bounded bias induced by π.
+
+Note that Assumption 1 introduces an additional sampling
+policy π based on Theorem C.2 from [51]. π will introduce
+a bounded bias, and the bias will ultimately affect the upper
+bound of the difference between w∗ and wt G . In EndPCA, the
+server does not rely on a clean and unbiased root dataset to
+form a reference update. Instead, it constructs this reference
+using the updates from a subset of high-trust clients. Consequently, the server operates on an empirical mean Xi0 , derived
+from these trustworthy clients, which may differ slightly
+from the true local mean Xi . The quantity B(π) captures this
+deviation introduced by the client-selection policy π.
+Assumption 2: The expected loss function L(w) is µstrongly convex and differentiable over the parameter
+space
+0
+Ω with K-Lipschitz gradient. That is, for all w, w ∈ Ω,
+µ 0
+0
+0
+L(w ) ≥ L(w) + h∇L(w), w − wi + ||w − w||2 ,
+2
+0
+0
+||∇L(w) − ∇L(w )|| ≤ K||w − w ||
+(13)
+
+where d is the dimension of the model updates, k is the number
+selected clients. DIV evaluates similarities across client pairs,
+yielding O(dn2 ). CEN performs K-means and similarity with
+complexity O(nd). TRD requires Hessian–vector products with
+complexity O(nd). Among these modules, the DIV is the most
+sensitive to increases in the number of participating clients, as
+its pairwise similarity computation scales as O(dn2 ). As for
+communication overhead, EndPCA exchanges only standard
+model updates, identical in format to FedAvg. Each round
+incurs nd downlink and kd uplink cost (with k  n), so
+the communication overhead remains on par with existing
+robust aggregation methods. These components are selected
+to collectively satisfy the defined security requirements. As
+shown in Section V-E, removing any one of them leads to
+degraded performance, confirming their necessity in EndPCA.
+
+where h·, ·i represent inner product of two vectors. In addition,
+the empirical loss function L(D, w) is K1 -Lipschitz probabilistically.
+That is, for any δ ∈ (0, 1),
+there oexists an K1 such that:
+n
+0
+)||
+≤ K1 ≥ 1 − 3δ .
+
+P supw,w0 ∈Ω:w,w0 ||∇L(D,w)−∇L(D,w
+0
+||w−w ||
+Assumption 3: The gradient of the empirical loss function L(D, w∗ ) at the optimal global model parameters w∗ is
+bounded. For any w ∈ Ω, the gradient difference h(D, w) =
+∇L(D, w) − ∇L(D, w∗ ) is bounded. Specifically, there exist
+positive constants δ1 and γ1 such that for any unit vector v,
+h∇L(D, w∗ ), vi is sub-exponential with σ1 and γ1 . And for any
+unit vector v, and ∀w ∈ Ω with w , w∗ , there exist positive
+constants δ2 and γ2 such that hh(D, w)−E[h(D, w)], vi/||w−w∗ ||
+is sub-exponential with σ2 and γ2 . Formally, for ∀|η| ≤ γ11 , and
+∀|η| ≤ γ12 , the following formulas are always true:
+ 2 2
+
+
+σ1 η
+sup E exp(ηh∇L(D, w), vi) ≤ exp
+,
+2
+v∈B
+
+
+
+ηhh(D, w) − E[h(D, w)], vi
+sup E exp
+||w − w∗ ||
+w∈Ω,v∈B
+ 2 2
+σ2 η
+≤ exp
+(14)
+2
+
+E. Formal Analysis
+To analyze the convergence of EndPCA, we introduce
+the following three assumptions (the gap between a random
+variable’s expectation and sample mean, the loss function, and
+the gradient upper bound).
+Assumption 1: If X1 , . . . , Xn are independent random variables where Xi ’s are sub-exponential with scaling parameters
+(vi , αi ) and mean µi , and X10 , . . . , Xn0 are independent random
+variables that are obtained by sampling from the probability
+
+
+where B = {v0 : ||v0 || = 1} is a unit sphere.
+Based on the assumptions, we derive two conclusions on
+EndPCA: (1) as the global training iteration t increases, the
+difference between w∗ and wt G decreases; (2) as t → ∞,
+this difference converges to a bounded value. Here, w∗ is the
+global model’s optimal parameters on X , and wt G represents
+the server’s model parameters after the tth training iteration.
+These two conclusions can be formally stated as Theorem 1.
+Theorem 1: Suppose Assumptions 1-3 hold. In addition,
+assume that B(π) ≤ ∆2 . For an arbitrary number of malicious
+clients but at least one honest client, the difference between
+
+Authorized licensed use limited to: Biblioteca de la Universidad de Extremadura. Downloaded on March 15,2026 at 14:04:29 UTC from IEEE Xplore. Restrictions apply.
+
+1444
+
+IEEE TRANSACTIONS ON INFORMATION FORENSICS AND SECURITY, VOL. 21, 2026
+
+the global model learned by EndPCA and the optimal global
+model w∗ is bounded. We have the following inequality with
+probability at least 1 − δ:
+
+bounded as follows:
+!
+|| gGt − ∇L(wt G )|| ≤
+
+2+
+
+X
+
+q̂ti
+
+k gtR − ∇L(wt G )k
+
+i∈St
+
+kw G − w k ≤ (1 − ρ) kw G − w k
+!
+X
+−1
+t
++ρ α 2+
+q̂i (5∆1 + 2∆2 ),
+t
+
+∗
+
+t
+
+0
+
+!
+
+∗
+
++ 1+
+
+where
+wt G
+denotes
+the
+parameters
+of
+global
+model
+in
+the
+tth
+iteration,
+ρ
+=
+1 −
+q
+
+
+P
+P
+µ2
+1 − 4K2 + 12∆2 α 2 + i∈St q̂ti + α 1 + i∈St q̂ti K ,
+q
+α is the global learning rate, ∆1 = σ1 2(d log 6+log(3/δ))
+,
+|DR t |
+q
+√
+18K
+∆2
+=
+σ2 |D2R t | K1 + K2 , K1
+=
+d log σ2 2 ,
+
+
+√
+t
+6σ22 r |DR t |
+, K2 = max{K, K1 },
+K2 = d2 log |DdR | + log
+γ2 σ1 δ
+K and K1 are Lipschitz parameters given in Assumption 2,
+σ1 and σ2 are given in Assumption 3, S
+DR t is the joint training
+dataset of all clients in StR , i.e., DR t = i∈StR Di , StR consists of
+the clients corresponding to the maximum q̂i in each iteration
+until global training iteration t, |DR t | is the size of DR t , d is the
+dimension of model parameters
+w, r is some positive number
+√
+such that ||w − w∗ || ≤ r d for all w ∈ Ω. The inequality for
+r means that the parameter space Ω is constrained.
+When
+P
+α(2+ i∈St q̂ti )(5∆1 +2∆2 )
+∗
+t
+.
+|1 − ρ| < 1, we have limt→+∞ ||w G − w || ≤
+ρ
+
+Theorem 1 shows that EndPCA can converge to a bounded
+neighborhood around the optimum without relying on a trusted
+dataset. According to Eq. (15), as |DR t | increases, the difference between w∗ and wt G decreases. Given a fixed Di , we
+can enlarge DR t by increasing StR . However, clients added
+to StR must be honest, so we cannot include all clients in
+StR . Therefore, at each global training iteration, we select
+the local model update corresponding to the largest q̂i value
+and compute a weighted average with the historical model
+updates. This approach expands StR while ensuring a high
+probability that clients in StR are honest. B(π) enlarges the
+radius of the bounded region around the optimum w∗ . But
+it does not affect the descent dynamics or the existence
+of convergence. B(π) ≤ ∆2 appears only as an additive term in the bound, reflecting the statistical mismatch
+between the server’s trusted estimate and the true underlying
+distribution.
+To establish Theorem 1, we decompose its proof into four
+supporting lemmas (i.e., Lemma 1 to Lemma 4). Each lemma
+is proved individually, and the theorem is subsequently derived
+based on the results of these lemmas. The core idea of the
+proof is as follows: directly proving the upper bound of
+||wt G − w∗ || is challenging, so we use gGt , ∇L(), ∇L(, ), etc., as
+intermediate bridges and respectively prove the relationships
+among them. Then, by the triangle inequality and -net argument theory, we establish the relationship between w∗ and wt G .
+The final result is an upper bound of the ||wt G − w∗ ||, but not
+its supremum. In practical experiments, the actual difference is
+much smaller than this upper bound. The detailed proof steps
+are provided in the appendix.
+Lemma 1: For an arbitrary iteration and an arbitrary number
+of malicious clients, the distance between global model update
+gGt and the gradients of the expectation loss ∇L(wt G ) is
+
+q̂ti k∇L(wt G )k
+
+(16)
+
+i∈St
+
+(15)
+
+i∈St
+
+X
+
+P
+|| gt ||
+
+where gGt = P 1 t q̂t i∈St q̂ti || gRt || gti . gtR .
+j∈S
+j
+i
+µ
+Lemma 2: If we set the learning rate as α = 2K2 , then we
+have the following in any global training iteration t ≥ 1:
+r
+µ2
+t−1
+∗
+t−1
+kw G − w − α∇L(w G )k ≤ 1 −
+kwt−1 G − w∗ k (17)
+4K2
+where µ and K are defined in Assumption 2.
+
+Lemma 3: Given any δ ∈ (0, 1) and w ∈ Ω. If
+Assumption 3 holds, ∆1 ≤ σ21 /γ1 and ∆3 ≤ σ22 /γ2 , then it
+holds that:
+n 1 X
+∇L(X, w∗ ) − ∇L(w∗ )
+P
+|DR t |
+t
+X∈DR
+o δ
+≥ 2∆1 + 2B(π) ≤ , and
+(18)
+3
+n 1 X
+∇h(X, w∗ ) − EX∼X [h(X, w)]
+P
+|DR t |
+X∈DR t
+o δ
+≥ 2∆3 ||w − w∗ || + 2B(π) ≤
+(19)
+3
+q
+where ∆1
+=
+σ1 2(d log 6+log(3/δ))
+and ∆3
+=
+|DR t |
+q
+σ2 2(d log 6+log(3/δ))
+.
+
+|DR t |
+Lemma 4: Suppose Assumption
+1-3
+and
+B(π)
+≤
+∆
+hold,
+2
+√
+and Ω ⊂ {w : ||w − w∗ || ≤ r d} holds for some positive
+parameter r, where d is the dimensionality of the global model
+σ2
+parameters. Then, given ∀δ ∈ (0, 1) and ∀w ∈ Ω, if ∆1 ≤ γ11
+σ2
+
+and ∆2 ≤ γ22 , the following formula always holds:
+
+where ∆2
+
+P{kgtR − ∇L(w)k ≤
+(12∆2 ||w − w∗ || + 5∆1 + 2∆2 )} ≥ 1 − δ
+(20)
+q
+√
+2
+= σ2 |D2R t | K1 + K2 , K1 = d log 18K
+σ2 , K2 =
+!
+qP
+
+|DR t |
+d
+2 log d + log
+
+6σ22 r
+
+i∈StR |Di |
+
+γ2 σ 1 δ
+
+, K2 = max{K, K1 }, and |Di |
+
+is the size of local training dateset on client i. B(π) is the
+sampling biases defined in Assumption 1.
+
+V. E VALUATION
+A. Experimental Setup
+1) Comparison BRARs and Attacks: We provide extensive
+experiments to evaluate the effectiveness of EndPCA, by
+comparing the accuracy of the learned global model and attack
+success rate with FedAvg [32] and several comparison BRARs,
+including FLTrust [26], FLest [42], Foolsgold [28], FLDetector
+[24], FLAME [29], RFLBAT [39], Deepsight [19], and BackdoorIndicator [40]. We consider several poisoning attacks:
+Labelflip (LF) [38], Updateflip (UF) [15], Trim [14], Adaptive
+attack [14], Scaling attack (SA) [16], 3DFed [17], ALIE [52],
+IPM [53], and DistanceMaximization [54]. The settings for
+LF, UF, Trim and Adaptive follow that in the FLTrust [26],
+
+Authorized licensed use limited to: Biblioteca de la Universidad de Extremadura. Downloaded on March 15,2026 at 14:04:29 UTC from IEEE Xplore. Restrictions apply.
+
+ZHANG et al.: ENSEMBLE DEFENSE WITH PROVABLY CONVERGENT AGGREGATION AGAINST ATTACKS IN FL
+
+while SA and 3DFed use configurations from their original
+papers [16], [17]. ALIE, IPM and DistanceMaximization are
+implemented based on open-source code.5
+2) Benchmark: Following the experimental setup in the
+previous work [17], [20], [23], [24], [26], [55], we evaluate
+our method on the following datasets: MNIST [56], FashionMNIST [57], CIFAR10 [58], Tiny-Imagenet [59], and HAR
+[60]. They are popular in FL community for evaluating the
+effectiveness of attack and defense methods. These datasets
+cover a range of dimensions, including lightweight to largescale datasets, small size to large size, grayscale to color
+images, and specific object classification to general object
+classification. The neural network architectures include MLP,
+CNNs FCNs, and Resnet18. To simulate the IID and non-IID
+datasets, we employ the label distribution [61]. The implementation aligns with the method described in [17], [26], and
+[42]. In our implementation, non-IID data are generated using
+a Dirichlet-based label-partitioning scheme. For each class,
+we draw a length-n probability vector (p1 , . . . , pn ) ∼ Dir(α)
+and assign the class’s samples to the n clients proportionally
+according to these probabilities. This procedure is repeated
+independently for all classes, yielding a heterogeneous dataset
+whose class distributions differ across clients. We set the
+Dirichlet parameter as α = b, where b denotes the bias
+probability: values of b close to 1 produce more uniform
+(near-IID) allocations, whereas values close to 0 yield highly
+skewed, strongly non-IID partitions. Other FL settings align
+with those in the previous works [17], [26].
+3) Metrics: We evaluate robustness and fidelity using model
+accuracy (ACC), which is the ratio of correctly classified test
+inputs. The backdoor resilience is evaluated through attack
+success rate (ASR), which is the ratio of attacker-targeted
+inputs misclassified as the target label. Metrics are computed
+with a test batch size of 100. Higher ACC indicates greater
+robustness, lower ASR reflects stronger backdoor resilience,
+and fidelity is measured by how closely the ACC matches
+FedAvg in non-attack scenarios.
+Summary of Experimental Results. We highlight the
+following conclusions regarding security requirements.
+Defense-integration robustness: EndPCA shows the highest
+robustness and significantly reduces backdoor attack success
+rates. Fidelity: EndPCA achieves model accuracy comparable
+to FedAvg. Data distribution independence: EndPCA
+maintains robustness and backdoor resilience under both
+IID and non-IID datasets. Large-scale malicious clients
+resilience: EndPCA consistently delivers strong robustness
+and backdoor resilience across varying malicious client
+proportions. Moreover, EndPCA does not rely on any
+auxiliary trusted dataset, satisfying security requirement R5.
+B. Robustness, Resilience and Fidelity
+Table II presents the ACC and ASR results. FedAvg attains
+the highest accuracy in the no-attack setting, as it incurs no
+defensive overhead, but it fails under adversarial conditions.
+In the “No attack” row, we therefore assess which BRAR
+best preserves the clean performance of FedAvg, providing
+a direct measure of Fidelity. The bias probability is set to
+0.9 (refer to Section V-C). We can observe the following:
+(1) Overall, EndPCA achieves the highest ACC in most cases
+compared to other BRARs. EndPCA’s ACC surpasses the
+second-best BRAR by 0.12% to 7.22%. (2) In rare cases,
+5 https://github.com/lishenghui/blades
+
+1445
+
+EndPCA does not achieve the highest ACC (e.g., under the
+LF attack on the Tiny-Imagenet dataset). Even in these cases,
+our method is only 1.03% behind the best-performing method
+(FLDetector). (3) In all cases, our method achieves the lowest
+ASR, outperforming the next best BRAR by 0.4% to 74.02%.
+We can conclude that EndPCA effectively satisfies security
+requirements R1. Focusing on the “No attack” row in Table II,
+we observe that: (1) In the absence of attacks, compared to
+other BRARs, EndPCA’s ACC is the closest to FedAvg’s ACC
+on datasets Fashion-MNIST, CIFAR10, and Tiny-Imagenet,
+with a difference of only 0.22% to 0.38%. (2) Although
+EndPCA does not achieve the closest ACC to FedAvg on either
+MNIST or HAR, it ranks second on both datasets, with only
+a 0.07% gap on MNIST and 0.29% on HAR. These results
+demonstrate EndPCA satisfies R2.
+We also compare our method with the latest defense
+techniques, BackdoorIndicator [40], specifically designed for
+3DFed. BackdoorIndicator provides no convergence guarantee,
+whereas EndPCA is provably convergent. It focuses solely on
+backdoor attacks and requires a server-side trusted dataset,
+while EndPCA covers a broader range of attacks without relying on such data. As shown in Table III, EndPCA outperforms
+BackdoorIndicator against SA but is slightly less effective
+against 3DFed.
+To demonstrate that the ensemble trust scores can distinguish between honest and malicious clients, Fig. 4 shows the
+curve of score changes. The x-axis represents the training
+rounds (starting from the round when the attack begins), and
+the y-axis represents the normalized ensemble trust score.
+The results demonstrate that EndPCA effectively distinguishes
+between honest and malicious clients based on their scores.
+C. Impact of IID and Non-IID Datasets
+Fig. 5 shows the performance of various methods under
+different attacks on both IID and non-IID client datasets.
+The dataset is MNIST. There are 20 clients, of which 4
+are malicious ones. The x-axis represents bias probability b
+(from 0.9 to 0.1), while the y-axis for (a) to (f) is ACC,
+and for (g) and (h) is ASR. From Fig. 5 (a) to (f), we
+observe the following: as b decreases, the ACC metric for all
+methods declines; however, EndPCA’s decline is significantly
+less compared to other methods (except for those whose ACC
+is already low and has little room to decrease). From Fig. 5 (g)
+and (h), we observe the following: as b decreases, EndPCA’s
+ASR remains nearly unchanged, whereas the ASR of all other
+methods increases. Notably, under the SA, although Foolsgold,
+FLAME, RFLBAT, and Deepsight have ASR metrics close to
+ours when b = 0.9, their ASR metrics rapidly surge to nearly
+99% as b drops to 0.7. Similar to Fig. 5, Fig. 6 and Fig. 7
+report results on the Fashion-MNIST and HAR datasets. The
+trends are consistent with those in Fig. 5: our method remains
+the best (and occasionally second-best) across different bias
+probabilities. These results demonstrate that though non-IID
+data affect the performance of EndPCA, it outperforms the
+comparison methods under various data distributions ranging
+from IID to non-IID, thereby better satisfying requirement R3.
+D. Impact of Proportions of Malicious Clients
+Fig. 8 illustrates the performance of various comparison
+methods under different proportions of malicious clients. The
+x-axis represents the proportion of malicious clients, while the
+y-axis for (a) to (f) shows ACC, and for (g) and (h) shows
+
+Authorized licensed use limited to: Biblioteca de la Universidad de Extremadura. Downloaded on March 15,2026 at 14:04:29 UTC from IEEE Xplore. Restrictions apply.
+
+1446
+
+IEEE TRANSACTIONS ON INFORMATION FORENSICS AND SECURITY, VOL. 21, 2026
+
+TABLE II
+T HE ACC (%) OF D IFFERENT FL M ETHODS U NDER D IFFERENT ATTACKS AND THE ASR (%) OF THE 3DF ED ATTACK AND SA.T HE R ESULTS FOR THE
+3DF ED ATTACK AND SA A RE IN THE F ORM OF “ACC(%) / ASR (%)”.T HE N ON -IID S ETTINGS A LIGN W ITH T HOSE IN [17].T HE B EST AND
+S ECOND B EST R ESULTS A MONG BRAR SARE H IGHLIGHTED IN THE B OLD -R ED AND B OLD -B LUE
+
+TABLE III
+BACKDOOR ROBUSTNESS . E XPERIMENTAL S ETUP : CIFAR10, R ESNET 18,
+100 C LIENTS , 20 M ALICIOUS C LIENTS (ACC(%)/ASR(%))
+
+ASR. From Fig. 8 (a) to Fig. 8 (f), we can observe the following: (1) As the proportion of malicious clients increases, the
+
+ACC of all methods decreases. However, EndPCA’s decrease
+is much smaller, and it consistently maintains higher ACC
+than all compared methods across all malicious-client ratios.
+(2) The proportion of malicious clients at which EndPCA’s
+ACC starts to decline is higher than that of other methods.
+EndPCA’s ACC generally does not start to decline until the
+proportion of malicious clients exceeds 60%, whereas other
+methods start to decline well before 60%. When the proportion
+of malicious clients is less than 60%, EndPCA’s ACC is
+close to 100%. From Fig. 8 (g) and Fig. 8 (h), we can see:
+
+Authorized licensed use limited to: Biblioteca de la Universidad de Extremadura. Downloaded on March 15,2026 at 14:04:29 UTC from IEEE Xplore. Restrictions apply.
+
+ZHANG et al.: ENSEMBLE DEFENSE WITH PROVABLY CONVERGENT AGGREGATION AGAINST ATTACKS IN FL
+
+1447
+
+Fig. 3. Illustration of our aggregation function (The numbers represent the sequential steps of each global training iteration in FL).
+
+TABLE IV
+A BLATION S TUDY. R ESULTS FOR 3DF ED AND SA A RE S HOWN AS
+“ACC(%) / ASR (%)”.T HE R ESULTS FOR THE OTHER ATTACKS A RE
+IN THE F ORM OF “ACC(%)”. W / O X I NDICATES THE
+A BSENCE OF X IN E ND PCA
+
+Fig. 4. The dyamics of the normalizated ensemble trust scores of honest
+clients and malicious clients under EndPCA (MNIST dataset, 20 client, and
+10 malicious clients).
+
+As the proportion of malicious clients increases, the ASR
+for all methods increases to varying degrees. However, our
+method’s ASR remains at a low level of 15% and does not
+increase further, whereas the ASR for other methods can rise to
+nearly 100%. These results indicate that while the proportion
+of malicious clients affects the performance of our method,
+it still maintains the best robustness and backdoor resilience
+compared to other methods across different proportions of
+malicious clients, thus satisfying requirement R4.
+E. Ablation Study
+To investigate the contribution of different components of
+EndPCA to its performance, we conduct an ablation study.
+EndPCA consists of five key modules: the four scoring strategies DIC, DIV, CEN, and TRD, and the history-weighted
+sum score (i.e., Eq.(3)) in the score-based defense integration
+
+(referred to as HWS below). In particular, EndPCA and five
+variants of EndPCA are considered. The five variants are:
+w/o DIC, w/o DIV, w/o CEN, and w/o TRD, which are
+modified from EndPCA by removing the DIC DIV, CEN, and
+TRD scoring strategies, respectively, and w/o HWS, which
+are modified from EndPCA by setting the αq (in Eq.(3)) to 1.
+Since DIV uses K-means and HDBSCAN is considered an
+effective method for clustering model updates [29], [62], we
+replaced the K-means with HDBSCAN, resulting in the variant
+EndPCA-H. We also replaced the ensemble trust score generation method with averaging (i.e., averaging the four normalized
+scores) to create the variant EndPCA-A. Table IV shows the
+results of the ablation study. The dataset is MNIST. There are
+16 honest clients and 4 malicious clients. The bias probability
+is set to 0.9. On all six poisoning attacks: (1) Removing DIC
+results in a slight decrease in ACC, particularly under adaptive
+attack. (2) Removing DIV also leads to a decrease in ACC and
+a significant increase in ASR. This suggests that the inclusion of DIV plays a crucial role in enhancing our method’s
+resilience to backdoor attacks. (3) Removing CEN leads to
+a substantial drop in ACC, highlighting its important role
+in maintaining robustness. (4) Removing TRD significantly
+increases ASR under the 3DFed attack, demonstrating its
+specific effectiveness against this attack. (5) Removing HWS
+leads to a slight decrease in ACC, which shows that HWS
+
+Authorized licensed use limited to: Biblioteca de la Universidad de Extremadura. Downloaded on March 15,2026 at 14:04:29 UTC from IEEE Xplore. Restrictions apply.
+
+1448
+
+IEEE TRANSACTIONS ON INFORMATION FORENSICS AND SECURITY, VOL. 21, 2026
+
+Fig. 5. Impact of the degree of non-IID (i.e., bias probability) on ACC/ASR of different methods under different attacks(MNIST).
+
+Fig. 6. Impact of the degree of non-IID (i.e., bias probability) on ACC/ASR of different methods under different attacks (Fashion-MNIST).
+
+enhances our method’s robustness. (6) EndPCA-H performs
+similarly to EndPCA under various attacks, indicating that the
+choice of clustering algorithm has little impact on the overall
+effectiveness. (7) EndPCA-A shows mediocre performance,
+significantly worse than EndPCA, highlighting that simple
+averaging of trust scores reduces the defense’s effectiveness.
+A key insight of EndPCA is that effective scoring methods
+tend to produce lower entropy, indicating more confident
+discrimination of clients. To validate this, we evaluated several
+methods on MNIST using an MLP model with 20 clients
+(including 4 malicious ones). For each method, we computed
+the average entropy over 30 randomly selected rounds. As
+shown in Table V, and compared with robustness results in
+Table II (a), methods with lower entropy generally exhibit
+stronger robustness, supporting our hypothesis.
+F. Supplementary Evaluation Under Advanced Attacks
+We also conduct supplementary evaluations against several
+advanced poisoning attacks. The results are summarized in
+
+TABLE V
+E NTROPY C OMPARISON OF D IFFERENT M ETHODS
+
+Table VI. The dataset is Fashion-MNIST, and the the neural
+network model is CNN. There are 16 honest clients and 4
+malicious clients. ALIE [52] is a general-purpose poisoning
+attack framework capable of instantiating both untargeted
+and targeted objectives. We evaluate two variants: ALIE
+(Converge), which prevents the model from converging to
+the optimal solution, and ALIE (Backdoor), which inserts
+backdoors into the global model. EndPCA maintains strong
+
+Authorized licensed use limited to: Biblioteca de la Universidad de Extremadura. Downloaded on March 15,2026 at 14:04:29 UTC from IEEE Xplore. Restrictions apply.
+
+ZHANG et al.: ENSEMBLE DEFENSE WITH PROVABLY CONVERGENT AGGREGATION AGAINST ATTACKS IN FL
+
+1449
+
+Fig. 7. Impact of the degree of non-IID (i.e., bias probability) on ACC/ASR of different methods under different attacks (HAR).
+
+Fig. 8. Impact of the fraction of malicious clients on ACC/ASR of different methods under different attacks.
+
+TABLE VI
+P ERFORMANCE OF E ND PCA U NDER S TRONGER ATTACKS
+
+performance against both variants, achieving 87.98% accuracy under ALIE (Converge), and 85.07% accuracy with
+only 12.76% ASR under ALIE (Backdoor). We also test
+EndPCA against IPM [53] and DistanceMaximization [54].
+EndPCA achieves 88.59% and 87.65% ACC under these
+attacks, respectively, demonstrating its broad-spectrum defense
+capability even beyond the main evaluation set. We further
+note that EndPCA is resilient to adaptive adversaries targeting
+
+the EWM-based integration. Manipulating the entropy of a
+single defense requires altering relative trust-score patterns,
+which either reveals the attacker or leaves the entropy essentially unchanged, while the ensemble still requires evading
+all heterogeneous defenses simultaneously. Moreover, our
+bounded-error convergence guarantee ensures stability as long
+as trust scores remain bounded, even under such adaptive
+attempts.
+VI. C ONCLUSION AND D ISCUSSION
+We developed EndPCA, a broad-spectrum defense against
+diverse poisoning attacks. Our theoretical analysis proves convergence with bounded error, and experiments show superior
+performance across datasets, neural networks, and attack settings. This work demonstrates that integrating heterogeneous
+weak BRARs through an entropy-based dynamic weighting
+scheme can achieve not only enhanced empirical robustness
+
+Authorized licensed use limited to: Biblioteca de la Universidad de Extremadura. Downloaded on March 15,2026 at 14:04:29 UTC from IEEE Xplore. Restrictions apply.
+
+1450
+
+IEEE TRANSACTIONS ON INFORMATION FORENSICS AND SECURITY, VOL. 21, 2026
+
+against diverse poisoning attacks, but also provable convergence under mild assumptions without requiring a trusted
+dataset. This addresses a fundamental limitation of prior
+defenses by unifying practical effectiveness with theoretical
+guarantees in federated learning.
+There remain several natural avenues for extension. While
+EndPCA integrates BRARs effectively, it has yet to incorporate other defenses, such as knowledge distillation [63],
+adversarial training [64], and moving target defense [65]. As
+for applicability, future work may extend EndPCA to smartmeter networks, ISAC sensing systems, and cyber-physical
+power infrastructures, where adversarial behaviors may be
+multimodal, coordinated, or trigger-free [5], [8], [9], [10].
+These settings introduce new threat patterns, and adapting the
+modular scoring framework of EndPCA to such environments
+is a natural direction for future research. Our theoretical guarantees rely on strong convexity and Lipschitz smoothness to
+enable a tractable analysis. Extending the convergence analysis
+of EndPCA to weaker or non-smooth conditions, particularly
+those reflecting the non-convexity of deep neural networks in
+practical FL, is an important direction for future work. Such
+extensions would further enhance the relevance of our theoretical insights to real-world deployments. Another promising
+direction is to reduce the computational cost of Hessian-based
+trigger detection, for example by using lightweight curvature
+approximations, Hessian-free techniques, or alternative triggerdetection mechanisms [66] that avoid explicit second-order
+computations. Another avenue is to analyze entropy-weighting
+under adaptive adversaries through a game-theoretic lens,
+which may help characterize bounded manipulation and further strengthen robustness guarantees.
+A PPENDIX
+S UPPLEMENTARY P ROOF OF T HEOREM 1
+Now, we begin the proof of Theorem 1. First, by triangle
+inequality, the left-hand side of inequality (15) in Theorem 1
+can be expanded as follows. For any tth global training
+iteration, we have:
+kwt G − w∗ k = kwt−1 G − αgGt−1 − w∗ k
+= kwt−1 G − α∇L(wt−1 G ) − w∗ + α∇L(wt−1 G ) − αgGt−1 k
+≤ kwt−1 G − α∇L(wt−1 G ) − w∗ k + αk∇L(wt−1 G ) − gGt−1 k. (21)
+Next, we expand the right-hand term of inequity (21) using
+Lemma 1–4. The detailed proofs are presented below.
+Proof of Lemma 1: Repeatedly using the triangle inequality,
+we have:
+X || gt ||
+
+
+||gGt − ∇L wt G || =
+q̂ti Rt gti − ∇L wt G
+||gi ||
+i∈St
+t
+X ||g ||
+
+=
+q̂ti Rt gti − gtR + gtR − ∇L wt G
+|| gi ||
+i∈St
+X ||gt ||
+
+≤
+q̂ti Rt gti − gtR + kgtR − ∇L wt G k
+||
+g
+||
+i
+i∈St
+X ||gt ||
+
+≤
+q̂ti Rt gti + k − gtR k + kgtR − ∇L wt G k
+|| gi ||
+i∈St
+X
+
+||gtR || t
+t
+t
+t
+≤
+q̂ti
+t gi + k gR k + kgR − ∇L w G k
+||gi ||
+t
+
+
+(22.1) X t
+=
+q̂i k gtR k + kgtR k + kgtR − ∇L wt G k
+i∈St
+!
+= 1+
+
+X
+
+
+k gtR k + kgtR − ∇L wt G k = 1+
+
+q̂ti
+
+i∈St
+
+X 
+
+
+
+q̂ti k gtR − ∇L wt G + ∇L wt G k + kgtR − ∇L wt G k
+i∈St
+
+!
+≤ 2+
+
+X
+
+q̂ti
+
+!
+X
+
+
+k gtR − ∇L wt G k + 1 +
+q̂ti k∇L wt G k
+
+i∈St
+
+i∈St
+
+(22)
+gt
+
+
+
+where inequality (22.1) is because || gti || is a unit vector.
+i
+
+Proof of Lemma 2: The proof of Lemma 2 needs to rely
+on Assumption 2. And it has been proved in [26].
+
+Proof of
+n Lemma 3:
+o First, we prove Eq. (18) of Lemma 3.
+Let V = v1 , . . . , vN 1 be an 12 -cover of the unit sphere B. It
+2
+is shown in Lemma 5.2, Lemma 5.3 [67], and Lemma 3.6 in
+[51] that N 12 ≤ d log 6, and
+1 X
+∇L(X, w∗ ) − ∇L(w∗ )
+|DR t |
+X∈DR t
+9
+8
+<D 1 X
+E=
+∇L(X, w∗ ) − ∇L(w∗ ), v .
+≤ 2 sup
+t
+;
+v∈V : |DR |
+t
+
+(23)
+
+X∈DR
+
+By the concentration inequalities for sub-exponential random variables introduced in the Lemma 3 [26], when
+Assumption 1 and ∆1 ≤ σ21 /γ1 hold, we have:
+nD 1 X
+E
+P
+∇L(X, w∗ ) − ∇L(w∗ ), v
+t
+|DR |
+X∈DR t
+o
+≥ (∆1 + B(π)) ≤ exp(−|DR t |∆21 /(2σ21 ))
+(24)
+By taking the union bound over all elements in V and
+combining them with of Eq. (23) and Eq. (24), the following
+inequality is always true:
+9
+8
+=
+< 1 X
+∗
+∗
+∇L(X,
+w
+)
+−
+∇L(w
+)
+≥
+2∆
++
+2B(π)
+P
+1
+;
+: |DR t |
+t
+X∈DR
+
+≤ exp(−|DR t |∆21 /(2σ21 )) = exp(− log(3/δ)) =
+
+δ
+.
+3
+
+(25)
+
+Then, we prove Eq. (19) of Lemma 3 in a similar way.
+1 X
+∇h(X, w∗ ) − EX∼X [h(X, w)] ≤ 2||w−
+|DR t |
+t
+X∈DR
+9
+8
+<D 1 X
+E=
+w∗ || sup
+∇h(X, w∗ ) − EX∼X [h(X, w)], v
+t
+:
+;
+|D
+|
+R
+v∈V
+t
+
+(26)
+
+X∈DR
+
+and
+nD 1 X
+E
+∗
+P
+∇h(X,
+w
+)
+−
+E
+[h(X,
+w)],
+v
+X∼X
+|DR t |
+X∈DR t
+o
+≥ (∆3 + B(π)) ≤ exp(−|DR t |∆23 /(2σ22 )).
+
+(27)
+
+i∈S
+
+Authorized licensed use limited to: Biblioteca de la Universidad de Extremadura. Downloaded on March 15,2026 at 14:04:29 UTC from IEEE Xplore. Restrictions apply.
+
+ZHANG et al.: ENSEMBLE DEFENSE WITH PROVABLY CONVERGENT AGGREGATION AGAINST ATTACKS IN FL
+
+By taking the union bound over all elements in V and
+combining them with of Eq. (26) and Eq. (27), the following
+inequality is always true:
+n 1 X
+P
+∇h(X, w∗ ) − EX∼X [h(X, w)] ≥ 2||w−
+|DR t |
+X∈DR t
+o
+δ
+w∗ ||(∆3 + B(π)) ≤ exp(−|DR t |∆23 /(2σ22 )) = .
+(28)
+3
+
+Proof of Lemma 4: The proof of Lemma 4 is mainly
+based on the -net argument [67] and theoretical results in the
+previous work [26], [51]. First, the
+S joint training dataset of all
+clients in StR is denoted as DR t = i∈StR Di . We use the classical
+ε-net argument to find an intermediate value that connects
+q
+P
+d
+2 σ1
+gtR = |D1R t | Xi ∈DR t ∇L(Xi , w) and ∇L(w). Let τ = γ2σ
+,
+2
+|DR t |
+2
+√
+and E ∗ be an integer satisfying E ∗ = dr d/τe, where d·e is
+the upward rounding function. For integers 1 ≤ E ≤ E ∗ , we
+define a parameter set as ΩE = {w : ||w − w∗ || ≤ τE }. For a
+given integer E , let w 1 , w 2 , . . . , w NεE be an εE -cover of ΩE ,
+q
+d
+2 τE
+where εE = σK
+and K2 = max{K, K1 }. By Lemma 5.2
+|DR t | 
+2
+
+in [67], log NεE ≤ d log 3τE
+εE . Fix any w ∈ ΩE , there exists
+a 1 ≤ jE ≤ NεE such that:
+||w − w jE || ≤ εE .
+
+(30.A)
+
+1 X
+1 X
++
+∇L(X, w) −
+∇L(X, w jE )
+t
+|DR |
+|DR t |
+t
+t
+X∈DR
+X∈DR
+„
+ƒ‚
+…
+(30.B)
+
+1 X
++
+∇L(X, w jE ) − ∇L(w jE )
+|DR t |
+X∈DR t
+„
+ƒ‚
+…
+
+By Assumption 2, we haveP{E1 } ≥ 1 − 3δ . On E1 , we have:
+sup k∇L̂(DR t , w) − ∇L̂(DR t , w jE )k ≤
+
+w∈Ω
+
+|DR t |K1 ||w − w jE || ≤ |DR t |K1 εE .
+
+(30)
+
+(30.C)
+
+(33)
+
+By triangle’s inequality, (30.C) is scaled up as follows:
+1 X
+∇L(X, w jE ) − ∇L(w jE )
+|DR t |
+Xi ∈DR t
+0
+1
+X
+1
+= @
+∇L(X, w∗ ) − ∇L(w∗ )A +
+|DR t |
+X∈DR t
+0
+1
+X
+1
+@
+(∇L(X, w jE ) − ∇L(X, w∗ ))A +
+|DR t |
+t
+X∈DR
+
+
+∗
+∇L(w ) − ∇L(w jE )
+(34.1)
+1 X
+≤
+∇L(X, w∗ ) − ∇L(w∗ ) +
+|DR t |
+t
+X∈DR
+
+1
+h(X, w jE ) − EX∼X [h(X, w jE )]
+|DR t |
+
+(34)
+
+where the term (34.1) is due to:
+
+(29)
+
+Then, by triangle’s inequality, kgtR − ∇L(wt G )k is divided
+into three parts,
+1 X
+kgtR − ∇L(wt G )k =
+∇L(X, w) − ∇L(w)
+|DR t |
+X∈DR t
+1 X
+∇L(X, w)
+= (∇L(w jE ) − ∇L(w)) +
+|DR t |
+X∈DR t
+
+1 X
+1 X
+−
+∇L(X, w jE ) +
+∇L(X, w jE )
+t
+|DR |
+|DR t |
+t
+t
+X∈DR
+X∈DR
+
+− ∇L(w jE ) ≤ k∇L(w) − ∇L(w jE )k
+ƒ‚
+…
+„
+
+1451
+
+EX∼X [h(X, w jE )] = EX∼X [∇L(X, w jE ) − ∇L(X, w∗ )]
+= EX∼X [∇L(X, w jE )] − EX∼X [∇L(X, w∗ )] =
+∇L(w jE ) − ∇L(w∗ ).
+(35)
+To analyze (30.C), we define events E2 and E3 as follows:
+E2
+8
+<
+
+9
+=
+1 X
+∗
+∗
+=
+∇L(X,
+w
+)
+−
+∇L(w
+)
+≤
+2∆
++
+2B(π)
+1
+: |DR t |
+;
+t
+X∈DR
+
+(36)
+1 X
+E3 (E ) =
+sup
+h(X, w j )−
+t
+1≤ j≤NεE |DR |
+X∈DR t
+o
+EX∼X [h(X, w j )] ≤ 2(∆2 + B(π))τE .
+n
+
+(37)
+
+By Lemma 3 in this paper, Proposition 3.8 in [51], ∆1 ≤
+σ21 /γ1 and ∆2 ≤ σ22 /γ2 (given in Lemma 4), we have P{E2 } ≥
+1 − 3δ and P{E3 (E )} ≥ 1 − 3Eδ ∗ .
+On event E1 ∩ E2 ∩ E3 (E ), we have:
+1 X
+∇L(X, w) − ∇L(w) ≤
+sup
+t
+w∈ΩE |DR |
+t
+X∈DR
+
+In view of Assumption 2 and Eq.(29), (30.A) satisfies:
+k∇L(w) − ∇L(w jE )k ≤ K||w − w jE || ≤ KεE
+
+(31)
+
+KεE + K1 εE + 2∆1 + 2B(π) + 2(∆2 + B(π))τE
+„ƒ‚…
+„ƒ‚… „ ƒ‚ … „
+ƒ‚
+…
+(38.A)
+
+(38.B)
+
+(38.C1)
+
+(38.C2)
+
+(38.1)
+
+To analyze (30.B), we define an event E1 as follows:
+E1
+(
+
+)
+0
+||∇L̂(DR t , w) − ∇L̂(DR t , w )||
+t
+=
+sup
+≤ |DR |K1 ,
+||w − w0 ||
+w,w0 ∈Ω:w,w0
+(32)
+P
+where ∇L̂(DR t , w) = Xi ∈DR t ∇L(Xi , w).
+
+(38.2)
+
+≤ 2K2 εE + 2∆1 + 2B(π) + 2∆2 τE + 2B(π)τE ≤
+6∆2 τE + 2∆1 + 2∆2
+(38)
+where the inequality can be split into (38.A), (38.B), (38.C1)
+and (38.C2) due to Eq. (31), (33), (25) and (28), respectively.
+And the inequality (38.1) holds because (K +
+qK1 ) ≤ 2K2 . And
+the inequality (38.2) holds because ∆2 ≥ σ2 |DdR t | and B(π) ≤
+
+∆2 . According to the union bound, P{E1 ∩E2 ∩(∩EE =1 E3 (E ))} ≥
+∗
+
+Authorized licensed use limited to: Biblioteca de la Universidad de Extremadura. Downloaded on March 15,2026 at 14:04:29 UTC from IEEE Xplore. Restrictions apply.
+
+1452
+
+IEEE TRANSACTIONS ON INFORMATION FORENSICS AND SECURITY, VOL. 21, 2026
+
+!
+
+1−δ holds. Then, for any w ∈ ΩE ∗ , there exists an 1 ≤ E ≤ E ∗
+such that (E − 1)τ < ||w − w∗ || ≤ E τ holds. If E = 1, then
+
++α 2+
+
+X
+
+(12∆2 ||wt−1 G − w∗ || + 5∆1 + 2∆2 )
+
+q̂ti
+
+i∈St
+
+1 X
+∇L(X, w) − ∇L(w)
+|DR t |
+t
+
+„
+
+ƒ‚
+
+…
+
+(43.E)
+
+!
+
+X∈DR
+
+≤ 6∆2 τ + 2∆1 + 2∆2 ≤ 5∆1 + 2∆2 .
+q
+σ2
+where it holds due to ∆2 ≤ γ22 , ∆1 ≥ σ1 |DdR t | .
+s
+s
+γ2 σ1
+d
+d
+γ2 σ1
+6∆2 τ = 6∆2
+= 3∆2 2
+|DR t |
+|DR t |
+2σ22
+σ2
+s
+s
+σ22 γ2 σ1
+d
+d
+≤3
+= 3σ1
+≤ 3∆1 .
+γ2 σ22
+|DR t |
+|DR t |
+
+(39)
+
+X
+
+q̂ti Kkwt−1 G − w∗ k
+
+i∈St
+
+ƒ‚
+
+„
+
+(43.F)
+
+…
+
+!
+X
+µ2
+t
+=
+1−
++ 12∆2 α 2 +
+q̂i +
+4K2
+i∈St
+!
+
+X
+t
+α 1+
+q̂i K kwt−1 G − w∗ k
+
+
+r
+
+i∈St
+
+(40)
+
+!
++α 2+
+
+If E ≥ 2, then we have 2(E − 1) ≥ E and the following
+inequality holds:
+1 X
+∇L(X, w) − ∇L(w) ≤
+|DR t |
+t
+X∈DR
+
+6∆2 τ(2(E − 1)) + 2∆1 + 2∆2 = 12∆2 τ(E − 1)+
+2∆1 + 2∆2 ≤ 12∆2 ||w − w∗ || + 2∆1 + 2∆2 .
+
++α 1+
+
+(41)
+
+X
+
+q̂ti (5∆1 + 2∆2 )
+
+(43)
+
+i∈St
+
+where the inequality (43.1) is obtained based on Lemma 1;
+we add ∇L(w∗ ) in (43.2) since ∇L(w∗ ) = 0; Eq.(43.A) scales
+to the term (43.D) via Eq.(17) in Lemma 2; The term (43.B)
+scales to the term (43.E) due to Lemma 4; The term (43.C)
+scales to the one (43.F) because of Assumption 2.
+By recursively applying Eq.(43) for each global iteration,
+we have:
+
+Finally, since Ω
+P⊂ ΩE ∗ , we conclude the proof of Lemma 4,
+where gtR = |D1R t | X∈DR t ∇L(X, wt ).
+
+
+kwt G − w∗ k ≤ (1 − ρ)t kw0 G − w∗ k
+
+P
+α 2 + i∈St q̂ti (5∆1 + 2∆2 )
+,
+(44)
++
+ρ
+q
+
+P
+µ2
+t
+where ρ = 1 −
+1 − 4K
+2 + 12∆2 α 2 +
+i∈St q̂i +
+ 
+P
+α 1 + i∈St q̂ti K .
+Finally, we conclude the proof of Theorem 1.
+
+Based on inequity (21) and Lemma 1 to Lemma 4, for any
+tth global training iteration, we have:
+
+R EFERENCES
+
+By combining Eq. (39) and Eq. (41), we have:
+sup
+w∈ΩE ∗
+
+1 X
+∇L(X, w) − ∇L(w) ≤
+|DR t |
+t
+X∈DR
+
+12∆2 ||w − w || + 5∆1 + 2∆2 .
+∗
+
+(42)
+
+[1]
+
+kwt G − w∗ k ≤ kwt−1 G − α∇L(wt−1 G ) − w∗ k+
+αk∇L(wt−1 G ) − gGt−1 k
+(43.1)
+
+≤ kwt−1 G − α∇L(wt−1 G )
+!
+X
+− w∗ k + α 1 +
+q̂ti k∇L(wt−1 G )k
+!i∈S
++α 2+
+
+X
+
+t
+
+t−1
+q̂ti kgt−1
+R − ∇L(w G )k
+
+i∈St
+(43.2)
+
+= kw
+„
+
+t−1
+
+t−1
+∗
+G − α∇L(w G ) − w k +
+
+ƒ‚
+
+(43.A)
+
+…
+
+!
+α 2+
+
+X
+
+t−1
+q̂ti kgt−1
+R − ∇L(w G )k
+
+i∈St
+
+„
+
+ƒ‚
+!
+
+…
+
+(43.B)
+
++α 1+
+
+X
+
+q̂ti k∇L(wt−1 G − ∇L(w∗ ))k
+
+i∈St
+
+„
+(43.3)
+
+ƒ‚
+
+(43.C)
+
+r
+
+≤
+
+1−
+„
+
+µ2
+kwt−1 G − w∗ k
+4K2ƒ‚
+…
+(43.D)
+
+…
+
+R. S. Antunes, C. André da Costa, A. Küderle, I. A. Yari, and
+B. Eskofier, “Federated learning for healthcare: Systematic review and
+architecture proposal,” ACM Trans. Intell. Syst. Technol., vol. 13, no. 4,
+pp. 1–23, Aug. 2022.
+[2] Z. Zeng et al., “FLBooster: A unified and efficient platform for federated
+learning acceleration,” in Proc. IEEE 39th Int. Conf. Data Eng. (ICDE),
+Apr. 2023, pp. 3140–3153.
+[3] X. Han, G. Xu, Y. Zhou, X. Yang, J. Li, and T. Zhang, “Physical
+backdoor attacks to lane detection systems in autonomous driving,” in
+Proc. 30th ACM Int. Conf. Multimedia, Oct. 2022, pp. 2957–2968.
+[4] Y. Qu, S. R. Pokhrel, S. Garg, L. Gao, and Y. Xiang, “A blockchained
+federated learning framework for cognitive computing in Industry 4.0
+networks,” IEEE Trans. Ind. Informat., vol. 17, no. 4, pp. 2964–2973,
+Apr. 2021.
+[5] J. He et al., “Advancing non-intrusive load monitoring: Predicting
+appliance-level power consumption with indirect supervision,” IEEE
+Trans. Netw. Sci. Eng., vol. 12, no. 4, pp. 2957–2973, Jul. 2025.
+[6] A. Hard et al., “Federated learning for mobile keyboard prediction,”
+2018, arXiv:1811.03604.
+[7] (2019). Designing for Privacy. [Online]. Available: https://
+developer.apple.com/videos/play/wwdc2019/708
+[8] J. He et al., “Preventing non-intrusive load monitoring privacy invasion:
+A precise adversarial attack scheme for networked smart meters,” IEEE
+Trans. Mobile Comput., vol. 24, no. 12, pp. 13696–13709, Dec. 2025.
+[9] J. Wang et al., “Generative AI based secure wireless sensing for ISAC
+networks,” IEEE Trans. Inf. Forensics Security, vol. 20, pp. 5195–5210,
+2025.
+[10] Z. Chen et al., “Efficient blockchain-based steganography via backcalculating generative adversarial network,” 2025, arXiv:2506.16023.
+[11] X. Lyu et al., “Poisoning with cerberus: Stealthy and colluded backdoor attack against federated learning,” in Proc. AAAI, vol. 37, 2023,
+pp. 9020–9028.
+
+Authorized licensed use limited to: Biblioteca de la Universidad de Extremadura. Downloaded on March 15,2026 at 14:04:29 UTC from IEEE Xplore. Restrictions apply.
+
+ZHANG et al.: ENSEMBLE DEFENSE WITH PROVABLY CONVERGENT AGGREGATION AGAINST ATTACKS IN FL
+
+[12] B. Biggio, B. Nelson, and P. Laskov, “Poisoning attacks against support
+vector machines,” in Proc. ICML, 2012, pp. 1467–1474.
+[13] X. Wu, H. Yuan, X. Li, J. Ni, and R. Lu, “Evaluating security and
+robustness for split federated learning against poisoning attacks,” IEEE
+Trans. Inf. Forensics Security, vol. 20, pp. 175–190, 2025.
+[14] M. Fang, X. Cao, J. Jia, and N. Z. Gong, “Local model poisoning attacks
+to Byzantine-robust federated learning,” in Proc. 29th USENIX Secur.
+Symp., 2019, pp. 1605–1622.
+[15] M. Zhang, Z. Jin, J. Hou, and R. Luo, “Resilient mechanism against
+Byzantine failure for distributed deep reinforcement learning,” in Proc.
+IEEE 33rd Int. Symp. Softw. Rel. Eng. (ISSRE), Oct. 2022, pp. 378–389.
+[16] E. Bagdasaryan, A. Veit, Y. Hua, D. Estrin, and V. Shmatikov, “How to
+backdoor federated learning,” in Proc. AISTATS, 2018, pp. 2938–2948.
+[17] H. Li et al., “3DFed: Adaptive and extensible framework for covert
+backdoor attack in federated learning,” in Proc. IEEE Symp. Secur.
+Privacy (SP), May 2023, pp. 1893–1907.
+[18] C. Xie, K. Huang, P. Chen, and B. Li, “DBA: Distributed backdoor
+attacks against federated learning,” in Proc. ICLR, 2020, pp. 1–19.
+[19] P. Rieger, T. D. Nguyen, M. Miettinen, and A.-R. Sadeghi, “DeepSight:
+Mitigating backdoor attacks in federated learning through deep
+model inspection,” in Proc. Netw. Distrib. Syst. Secur. Symp., 2022,
+pp. 23156:1–23156:8.
+[20] X. Cao, J. Jia, and N. Z. Gong, “Provably secure federated learning
+against malicious clients,” in Proc. AAAI Conf. Artif. Intell., 2021,
+vol. 35, no. 8, pp. 6885–6893.
+[21] E. M. E. Mhamdi, R. Guerraoui, and S. Rouault, “The hidden vulnerability of distributed learning in byzantium,” in Proc. ICML, 2018,
+pp. 3518–3527.
+[22] P. Blanchard, E. M. E. Mhamdi, R. Guerraoui, and J. Stainer, “Machine
+learning with adversaries: Byzantine tolerant gradient descent,” in Proc.
+NeurIPS, vol. 30, 2017, pp. 118–128.
+[23] X. Pan, M. Zhang, D. Wu, Q. Xiao, S. Ji, and M. Yang, “Justinian’s
+gaavernor: Robust distributed learning with gradient aggregation agent,”
+in Proc. 29th USENIX Secur. Symp., 2020, pp. 1641–1658.
+[24] Z. Zhang, X. Cao, J. Jia, and N. Z. Gong, “FLDetector: Defending federated learning against model poisoning attacks via detecting malicious
+clients,” in Proc. 28th ACM SIGKDD Conf. Knowl. Discovery Data
+Mining, Aug. 2022, pp. 2545–2555.
+[25] C. Xie, S. Koyejo, and I. Gupta, “Zeno++: Robust fully asynchronous
+SGD,” in Proc. ICML, vol. 1, 2019, pp. 10495–10503.
+[26] X. Cao, M. Fang, J. Liu, and N. Z. Gong, “FLTrust: Byzantinerobust federated learning via trust bootstrapping,” in Proc. NDSS, 2021,
+pp. 1260–1277.
+[27] C. Wu, S. Zhu, and P. Mitra, “Federated unlearning with knowledge
+distillation,” 2022, arXiv:2201.09441.
+[28] C. Fung, C. J. M. Yoon, and I. Beschastnikh, “The limitations of
+federated learning in Sybil settings,” in Proc. 29th USENIX Secur. Symp.,
+2020, pp. 301–316.
+[29] T. D. Nguyen et al., “FLAME: Taming backdoors in federated learning,”
+in Proc. 29th USENIX Secur. Symp., 2022, pp. 1415–1432.
+[30] Y. Freund and R. E. Schapire, “A decision-theoretic generalization of
+on-line learning and an application to boosting,” J. Comput. Syst. Sci.,
+vol. 55, no. 1, pp. 119–139, Aug. 1997.
+[31] T. Hastie, S. Rosset, J. Zhu, and H. Zou, “Multi-class AdaBoost,” Statist.
+Interface, vol. 2, no. 3, pp. 349–360, 2009.
+[32] B. McMahan, E. Moore, D. Ramage, S. Hampson, and B. A. Y. Arcas,
+“Communication-efficient learning of deep networks from decentralized
+data,” in Proc. 20th Int. Conf. Artif. Intell. Statist., 2017, pp. 1273–1282.
+[33] Y. Liu et al., “Trojaning attack on neural networks,” in Proc. Netw.
+Distrib. Syst. Secur. Symp., 2018, pp. 304–318.
+[34] A. Shafahi et al., “Poison frogs! targeted clean-label poisoning attacks
+on neural networks,” in Proc. 32nd Int. Conf. Neural Inf. Process. Syst.,
+2018, pp. 6106–6116.
+[35] O. Suciu, R. Marginean, Y. Kaya, H. Daume III, and T. Dumitras, “When
+does machine learning FAIL? Generalized transferability for evasion
+and poisoning attacks,” in Proc. 27th USENIX Secur. Symp. (USENIX
+Security), 2018, pp. 1299–1316.
+[36] X. Gong, Y. Chen, H. Huang, Y. Liao, S. Wang, and Q. Wang,
+“Coordinated backdoor attacks against federated learning with modeldependent triggers,” IEEE Netw., vol. 36, no. 1, pp. 84–90, Jan. 2022.
+[37] N. Wang, Y. Xiao, Y. Chen, Y. Hu, W. Lou, and Y. T. Hou, “FLARE:
+Defending federated learning against model poisoning attacks via latent
+space representations,” in Proc. ACM Asia Conf. Comput. Commun.
+Secur., May 2022, pp. 946–958.
+[38] H. Wang et al., “Attack of the tails: Yes, you really can backdoor
+federated learning,” in Proc. NeurIPS, 2020, pp. 16070–16084.
+[39] Y. Wang, D. Zhai, Y. Zhan, and Y. Xia, “RFLBAT: A robust federated
+learning algorithm against backdoor attack,” 2022, arXiv:2201.03772.
+
+1453
+
+[40] S. Li and Y. Dai, “BackdoorIndicator: Leveraging OOD data for proactive backdoor detection in federated learning,” 2024, arXiv:2405.20862.
+[41] Y. Deng et al., “FAIR: Quality-aware federated learning with precise
+user incentive and model aggregation,” in Proc. IEEE INFOCOM Conf.
+Comput. Commun., May 2021, pp. 1–10.
+[42] G. Geng, T. Cai, and Z. Yang, “Better safe than sorry: Constructing
+Byzantine-robust federated learning with synthesized trust,” Electronics,
+vol. 12, no. 13, p. 2926, Jul. 2023.
+[43] X. Cao, Z. Zhang, J. Jia, and N. Z. Gong, “FLCert: Provably secure
+federated learning against poisoning attacks,” IEEE Trans. Inf. Forensics
+Security, vol. 17, pp. 3691–3705, 2022.
+[44] D. Yin, Y. Chen, K. Ramchandran, and P. L. Bartlett, “Byzantine-robust
+distributed learning: Towards optimal statistical rates,” in Proc. ICML,
+2018, pp. 5636–5645.
+[45] M. Jagielski, A. Oprea, B. Biggio, C. Liu, C. Nita-Rotaru, and B. Li,
+“Manipulating machine learning: Poisoning attacks and countermeasures
+for regression learning,” in Proc. IEEE Symp. Secur. Privacy (SP), May
+2018, pp. 19–35.
+[46] X. Cao, J. Jia, Z. Zhang, and N. Z. Gong, “FedRecover: Recovering from
+poisoning attacks in federated learning using historical information,” in
+Proc. IEEE Symp. Secur. Privacy (SP), May 2023, pp. 1366–1383.
+[47] Y. Zhu, D. Tian, and F. Yan, “Effectiveness of entropy weight method in
+decision-making,” Math. Problems Eng., vol. 2020, pp. 1–5, Mar. 2020.
+[48] P. Chen, “Effects of the entropy weight on TOPSIS,” Expert Syst. Appl.,
+vol. 168, Apr. 2021, Art. no. 114186.
+[49] F. T. Liu, K. M. Ting, and Z.-H. Zhou, “Isolation forest,” in Proc. 8th
+IEEE Int. Conf. Data Min., Dec. 2008, pp. 413–422.
+[50] S. He, F. Chen, and B. Jiang, “Physical intrusion monitoring via
+local–global network and deep isolation forest based on heterogeneous
+signals,” Neurocomputing, vol. 441, pp. 25–35, Jun. 2021.
+[51] Y. Chen, L. Su, and J. Xu, “Distributed statistical machine learning in
+adversarial settings: Byzantine gradient descent,” in Proc. SIGMETRICS,
+2017, p. 96.
+[52] G. Baruch, M. Baruch, and Y. Goldberg, “A little is enough: Circumventing defenses for distributed learning,” in Proc. Adv. Neural Inf. Process.
+Syst. (NIPS), 2019, pp. 8632–8642.
+[53] C. Xie, S. Koyejo, and I. Gupta, “Fall of empires: Breaking Byzantinetolerant SGD by inner product manipulation,” in Proc. UAI, 2019,
+pp. 261–270.
+[54] V. Shejwalkar and A. Houmansadr, “Manipulating the Byzantine: Optimizing model poisoning attacks and defenses for federated learning,” in
+Proc. NDSS, 2021, pp. 1278–1295.
+[55] P. Rieger, T. Krauß, M. Miettinen, A. Dmitrienko, and A. Sadeghi,
+“CrowdGuard: Federated backdoor detection in federated learning,” in
+Proc. NDSS, 2024, pp. 1–18.
+[56] Y. LeCun. (1998). The MNIST Database of Handwritten Digits. [Online].
+Available: http://yann.lecun.com/exdb/mnist/
+[57] H. Xiao, K. Rasul, and R. Vollgraf, “Fashion-MNIST: A novel
+image dataset for benchmarking machine learning algorithms,” 2017,
+arXiv:1708.07747.
+[58] A. Krizhevsky and G. Hinton, “Learning multiple layers of features
+from tiny images,” Dept. Comput. Sci., Univ. of Toronto, Toronto, ON,
+Canada, Tech. Rep. Toronto, ON, Canada, 2009.
+[59] Y. Le and X. Yang, “Tiny imagenet visual recognition challenge,” CS
+231N, vol. 7, no. 7, p. 3, 2015.
+[60] D. Anguita, A. Ghio, L. Oneto, X. Parra, and J. L. Reyes-Ortiz, “A public
+domain dataset for human activity recognition using smartphones,” in
+Proc. ESANN, 2013, pp. 437–442.
+[61] K. W. Ng, G.-L. Tian, and M.-L. Tang, Dirichlet and Related Distributions: Theory, Methods and Applications. Hoboken, NJ, USA: Wiley,
+2011.
+[62] L. McInnes, J. Healy, and S. Astels, “hdbscan: Hierarchical density
+based clustering,” J. Open Source Softw., vol. 2, no. 11, p. 205, Mar.
+2017.
+[63] S. Kalra, J. Wen, J. C. Cresswell, M. Volkovs, and H. R. Tizhoosh,
+“Decentralized federated learning through proxy model sharing,” Nature
+Commun., vol. 14, no. 1, p. 2899, May 2023.
+[64] J. Feng, Q.-Z. Cai, and Z. Zhou, “Learning to confuse: Generating
+training time adversarial data with auto-encoder,” in Proc. NeurIPS,
+vol. 32, 2019, pp. 11994–12004.
+[65] R. Zhuang, S. A. DeLoach, and X. Ou, “Towards a theory of moving
+target defense,” in Proc. MTD@CCS, 2014, pp. 31–40.
+[66] Z. Yang, H. Yue, J. Chen, and H. Liu, “Revisit, extend, and enhance
+hessian-free influence functions,” 2024, arXiv:2405.17490.
+[67] R. Vershynin, “Introduction to the non-asymptotic analysis of
+random matrices,” in Compressed Sensing, Y. C. Eldar and
+G. Kutyniok, Eds., Cambridge, U.K.: Cambridge Univ. Press, 2012,
+pp. 210–268.
+
+Authorized licensed use limited to: Biblioteca de la Universidad de Extremadura. Downloaded on March 15,2026 at 14:04:29 UTC from IEEE Xplore. Restrictions apply.
+
+
