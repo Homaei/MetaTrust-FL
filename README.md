@@ -70,10 +70,10 @@ defense_strategy = "metatrust"
 If you use this project in your research, please cite the corresponding paper.
 
 ```
-@article{homaei2026metatrust,
+@misc{homaei2026metatrust,
   title={Adaptive Zero-Knowledge Verification for Federated Learning: A Meta-Learned Trust Policy with Byzantine Resilience},
   author={Homaei, Mohammadhossein and Kreso, Inda and Khazrak, Iman and de la Torre D{\'\i}ez, Isabel and Caro, Andr{\'e}s and {\'A}vila, Mar},
-  journal={Springer Nature},
+  journal={Springer Nature_Under Review},
   year={2026}
 }
 ```
