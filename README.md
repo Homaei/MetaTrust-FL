@@ -1,4 +1,4 @@
-# MetaTrust-FL: Adaptive Zero-Knowledge Verification for Federated Learning
+# MetaTrust-FL: Adaptive Zero-Knowledge Verification for Federated Learning: A Meta-Learned Trust Policy with Byzantine Resilience
 
 ![Graphical Abstract](GA.png)
 
