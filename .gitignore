@@ -1,0 +1,30 @@
+# Dataset files
+*.csv
+*.parquet
+*.h5
+*.hdf5
+eicu*/
+
+# Cache files
+*.npz
+*.pkl
+*.pickle
+
+# Result outputs
+results/
+REPORTS_*/
+*.json
+
+# Logs
+*.log
+*.pid
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
