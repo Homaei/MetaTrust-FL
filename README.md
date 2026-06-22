@@ -10,7 +10,7 @@
 
 - **Mohammadhossein Homaei** — Universidad de Extremadura, Spain
 - **Iman Khazrak** — Bowling Green State University, USA
-- **[Naghmeh Moradpoor](https://scholar.google.com/citations?user=Wsp7lioAAAAJ&hl=en)** — Edinburgh Napier University, UK
+- **Naghmeh Moradpoor** — Edinburgh Napier University, UK
 - **Andrés Caro** — Universidad de Extremadura, Spain
 - **Mar Ávila** — Universidad de Extremadura, Spain
 
